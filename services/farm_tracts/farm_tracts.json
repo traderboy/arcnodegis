@@ -1,1 +1,1 @@
-{"folders": [], "services": [{"url": "http://reais.mapye.com/rest/services/reais.mapye.com/FeatureServer", "type": "FeatureServer", "name": "farm_tracts"}], "currentVersion": 10.3}
+{"folders": [], "services": [{"url": "http://localhost/rest/services/localhost/FeatureServer", "type": "FeatureServer", "name": "farm_tracts"}], "currentVersion": 10.3}
