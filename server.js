@@ -7,6 +7,7 @@ var http = require('http');
 var fs = require('fs');
 var data_path=__dirname + "/services";
 var replica_path=__dirname+"/replicas";
+var attachments_path=__dirname+"/attachments";
 var defaultService="";
 var resultscache={};
 
@@ -447,27 +448,39 @@ Attachments
 app.get('/arcgis/rest/services/:name/FeatureServer/:id/:row/attachments', function(req, res){
 	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/"+req.params.id+"/attachments");
 	//{"attachmentInfos":[{"id":5,"globalId":"xxxx","parentID":"47","name":"cat.jpg","contentType":"image/jpeg","size":5091}]}
-	var response={"attachmentInfos":[]}
+	var attachment = attachments_path + "/"+ req.params.name + "/"+req.params.id+"/"+req.params.row;	
+	if(fs.existsSync(attachment))
+	   var response={"attachmentInfos":["id":req.params.row,"contentType":"image/jpeg","name":req.params.row+".jpg"]}
+	else
+	  var response={"attachmentInfos":[]}
   res.json(response);
 });
 
 app.get('/arcgis/rest/services/:name/FeatureServer/:id/:row/attachments/:img', function(req, res){
 	console.log("/arcgis/rest/services/FeatureServer/attachments/img");
+	var attachment = attachments_path + "/"+ req.params.name + "/"+req.params.id+"/"+req.params.row+"/"+req.params.img;
+	if(fs.existsSync(attachment))
+    res.sendFile(attachment)
+  else
+  	res.json({"Error":"File not found"})
+  /*
 	var path="photos/cat.jpg";
 	var fs = require('fs');
   var file = fs.readFileSync(path, "utf8");
   res.end(file)
+  */
 });
 
 app.post('/arcgis/rest/services/:name/FeatureServer/:id/:row/addAttachment', function(req, res){
 	console.log("/arcgis/rest/services/FeatureServer/addAttachment");
   // TODO: move and rename the file using req.files.path & .name)
   //res.send(console.dir(req.files));  // DEBUG: display available fields
-  var uploadPath = data_path+"/" + req.params.name + "/attachments";
+  var uploadPath = attachments_path+"/" + req.params.name + "/"+req.params.id+"/" + req.params.row+"/attachments";
   if(!fs.existsSync(uploadPath)){
       fs.mkdir(uploadPath,function(e){
           if(!e || (e && e.code === 'EEXIST')){
               //do something with contents
+              
           } else {
               //debug
               console.log(e);
@@ -476,7 +489,7 @@ app.post('/arcgis/rest/services/:name/FeatureServer/:id/:row/addAttachment', fun
   }
   fs.readFile(req.files.attachment.path, function (err, data) {
     // ...
-    var newPath = uploadPath + "/" + req.params.id + ".jpg";
+    var newPath = uploadPath + "/" + req.params.row + ".jpg";
     fs.writeFile(newPath, data, function (err) {
       //res.redirect("back");
 	    var response={"addAttachmentResult":{"objectId":req.params.row,"globalId":null,"success":true}}
