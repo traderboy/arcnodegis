@@ -5,8 +5,8 @@ var https = require('https');
 var http = require('http');
 
 var fs = require('fs');
-var data_path="c:\\node\\services";
-var replica_path="c:\\node\\replicas";
+var data_path=__dirname + "/services";
+var replica_path=__dirname+"/replicas";
 var defaultService="";
 var resultscache={};
 
@@ -31,7 +31,7 @@ var options = {
 };
 //ssl_certificate     /etc/ssl/certs/reais.crt;
 //sl_certificate_key /etc/ssl/private/reais.key;
-var server="";
+var server="localhost";
 var serverDomain="e";
 
 var options1 = {
@@ -250,6 +250,11 @@ app.get('/sharing/rest/community/users/:user',function(req, res){
 	send(res,"community.users.json");
 });
 
+app.get('/sharing/rest/community/users',function(req, res){
+	console.log("/sharing/rest/community/users/");
+	send(res,"community.users.json");
+});
+
 app.get('/sharing/rest/community/users/:user/info/:img',function(req, res){
 	console.log("/sharing/rest/community/users/"+req.params.user+"/info/"+req.params.img);
 	var path="photos/cat.jpg";
@@ -300,16 +305,23 @@ Accept-Encoding: gzip
 
 f=json&replicaID=
 */
+app.get('/arcgis/rest/services/:name/FeatureServer/jobs/replicas', function(req, res){
+	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/job/replica");
+  var result= {"replicaName":"MyReplica","replicaID":"58808194-921a-4f9f-ac97-5ffd403368a9","submissionTime":1441201696150,"lastUpdatedTime":1441201705967,"status":"Completed",
+  	"resultUrl":"http://"+server+"/arcgis/rest/services/"+req.params.name+"/FeatureServer/replicas/"}	
+	res.json(result);
+});
+
 app.post('/arcgis/rest/services/:name/FeatureServer/unRegisterReplica', function(req, res){
 	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/unRegisterReplica");
 	var response={"success":true}
   res.json(response);
 });
 
-app.post('/arcgis/rest/services/:name/FeatureServer/replicas', function(req, res){
-	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/createReplica (post)");
-	var fileName = "replicas/"+req.params.name+".geodatabase";
-  res.sendFile(data_path+"/" + name); //, { root : __dirname})
+app.get('/arcgis/rest/services/:name/FeatureServer/replicas', function(req, res){
+	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/replicas");
+	var fileName = replica_path+"/"+req.params.name+".geodatabase";
+  res.sendFile(fileName); //, { root : __dirname})
 });
 app.post('/arcgis/rest/services/:name/FeatureServer/createReplica', function(req, res){
 	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/createReplica (post)");
@@ -319,10 +331,25 @@ app.post('/arcgis/rest/services/:name/FeatureServer/createReplica', function(req
 
 app.post('/arcgis/rest/services/:name/FeatureServer/synchronizeReplica', function(req, res){
 	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/synchronizeReplica");
-	var response={"statusUrl":"http://services5.arcgis.com/KOH6W4WICH5gzytg/ArcGIS/rest/services/collector/FeatureServer/jobs/ea726ba6-1bae-4dab-ac06-dd0ad8b3f5e7"}
+	var response={"status": "Completed","transportType": "esriTransportTypeUrl"}
+  /*
+  "responseType": <esriReplicaResponseTypeEdits | esriReplicaResponseTypeEditsAndData| esriReplicaResponseTypeNoEdits>,
+  "resultUrl": "<url>", //path to JSON (dataFormat=JSON) or a SQLite geodatabase (dataFormat=sqlite)
+  "submissionTime": "<T1>",  //Time since epoch in milliseconds
+  "lastUpdatedTime": "<T2>", //Time since epoch in milliseconds
+  "status": "<Pending | InProgress | Completed | Failed | ImportChanges | ExportChanges | ExportingData | ExportingSnapshot 
+	       | ExportAttachments | ImportAttachments | ProvisioningReplica | UnRegisteringReplica | CompletedWithErrors>"
+	*/
   res.json(response);
 
 });
+app.get('/arcgis/rest/services/:name/FeatureServer/jobs', function(req, res){
+	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/jobs");
+  var result= {"replicaName":"MyReplica","replicaID":"58808194-921a-4f9f-ac97-5ffd403368a9","submissionTime":1441201696150,"lastUpdatedTime":1441201705967,"status":"Completed",
+  	"resultUrl":"http://"+server+"/arcgis/rest/services/"+req.params.name+"/FeatureServer/replicas/"}	
+	res.json(result);
+});
+
 
 app.get('/arcgis/rest/services', function(req, res){
 	console.log("/arcgis/rest/services");
@@ -545,7 +572,7 @@ function send(res,name,callback){
   }
 	else{
 		console.log(data_path+"/" + name);
-		res.sendFile(data_path+"\\" + name.replace(/\//g,"\\")); //, { root : __dirname})
+		res.sendFile(data_path+"/" + name); //, { root : __dirname})
 	}
 	//4.0 res.sendFile("json/" + name , { root : __dirname})
 	/*
