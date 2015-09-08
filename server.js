@@ -3,6 +3,9 @@ var bodyParser  = require('body-parser');
 var app = express();
 var https = require('https');
 var http = require('http');
+var busboy = require('connect-busboy');
+
+
 
 var fs = require('fs');
 var data_path=__dirname + "/services";
@@ -15,6 +18,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
   extended: true
 }));
+app.use(busboy()); 
 
 var sqlite3 = require('sqlite3').verbose();
 // This line is from the Node.js HTTPS documentation.
@@ -446,11 +450,18 @@ app.post('/arcgis/rest/services/:name/FeatureServer/:id/query', function(req, re
 Attachments
 */
 app.get('/arcgis/rest/services/:name/FeatureServer/:id/:row/attachments', function(req, res){
-	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/"+req.params.id+"/attachments");
+	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/"+req.params.id+"/"+req.params.row+"/attachments");
 	//{"attachmentInfos":[{"id":5,"globalId":"xxxx","parentID":"47","name":"cat.jpg","contentType":"image/jpeg","size":5091}]}
-	var attachment = attachments_path + "/"+ req.params.name + "/"+req.params.id+"/"+req.params.row;	
-	if(fs.existsSync(attachment))
-	   var response={"attachmentInfos":["id":req.params.row,"contentType":"image/jpeg","name":req.params.row+".jpg"]}
+	var attachmentPath = attachments_path + "/"+ req.params.name + "/"+req.params.id+"/"+req.params.row+"/";	
+	
+	if(fs.existsSync(attachmentPath)){
+	   var files = fs.readdirSync(attachmentPath);
+	   var infos=[]
+	   for(var i in files)
+	     infos.push({"id":i,"contentType":"image/jpeg","name":files[i]});
+	     //{"id":req.params.row,"contentType":"image/jpeg","name":req.params.row+".jpg"}
+	   var response={"attachmentInfos":infos}
+	}
 	else
 	  var response={"attachmentInfos":[]}
   res.json(response);
@@ -458,7 +469,7 @@ app.get('/arcgis/rest/services/:name/FeatureServer/:id/:row/attachments', functi
 
 app.get('/arcgis/rest/services/:name/FeatureServer/:id/:row/attachments/:img', function(req, res){
 	console.log("/arcgis/rest/services/FeatureServer/attachments/img");
-	var attachment = attachments_path + "/"+ req.params.name + "/"+req.params.id+"/"+req.params.row+"/"+req.params.img;
+	var attachment = attachments_path + "/"+ req.params.name + "/"+req.params.id+"/"+req.params.row+"/"+req.params.img+".jpg";
 	if(fs.existsSync(attachment))
     res.sendFile(attachment)
   else
@@ -472,12 +483,14 @@ app.get('/arcgis/rest/services/:name/FeatureServer/:id/:row/attachments/:img', f
 });
 
 app.post('/arcgis/rest/services/:name/FeatureServer/:id/:row/addAttachment', function(req, res){
-	console.log("/arcgis/rest/services/FeatureServer/addAttachment");
+	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/"+req.params.id+"/"+req.params.row+"/addAttachment");
   // TODO: move and rename the file using req.files.path & .name)
   //res.send(console.dir(req.files));  // DEBUG: display available fields
-  var uploadPath = attachments_path+"/" + req.params.name + "/"+req.params.id+"/" + req.params.row+"/attachments";
+  var uploadPath = attachments_path+"/" + req.params.name + "/"+req.params.id+"/" + req.params.row+"/";
+  var mkdirp = require('mkdirp');
   if(!fs.existsSync(uploadPath)){
-      fs.mkdir(uploadPath,function(e){
+      //fs.mkdir(uploadPath,function(e){
+      mkdirp.sync(uploadPath,function(e){
           if(!e || (e && e.code === 'EEXIST')){
               //do something with contents
               
@@ -487,6 +500,22 @@ app.post('/arcgis/rest/services/:name/FeatureServer/:id/:row/addAttachment', fun
           }
       });  	
   }
+  var files = fs.readdirSync(uploadPath);
+  var id=files.length;
+  var fstream;
+  req.pipe(req.busboy);
+  req.busboy.on('file', function (fieldname, file, filename) {
+        console.log("Uploading: " + filename); 
+        var attachment = uploadPath + "/" + id + ".jpg";
+        fstream = fs.createWriteStream(attachmentPath);
+        file.pipe(fstream);
+        fstream.on('close', function () {
+            //res.redirect('back');
+	          var response={"addAttachmentResult":{"objectId":id,"globalId":null,"success":true}}
+            res.json(response);
+        });
+  });
+  /*
   fs.readFile(req.files.attachment.path, function (err, data) {
     // ...
     var newPath = uploadPath + "/" + req.params.row + ".jpg";
@@ -496,9 +525,17 @@ app.post('/arcgis/rest/services/:name/FeatureServer/:id/:row/addAttachment', fun
       res.json(response);
     });
   });
-    
+  */
 });
-	
+
+app.post('/arcgis/rest/services/:name/FeatureServer/:id/:row/updateAttachment', function(req, res){
+	console.log("/arcgis/rest/services/"+req.params.name+"/FeatureServer/"+req.params.id+"/"+req.params.row+"/updateAttachment");
+	var id = req.query.attachmentIds;
+	var response={"deleteAttachmentResults":[{"objectId":id,"globalId":null,"success":true}]}
+  res.json(response);
+
+});
+
 app.post('/arcgis/rest/services/:name/FeatureServer/:id/:row/deleteAttachments', function(req, res){
 	console.log("/arcgis/rest/services/FeatureServer/deleteAttachments");
 	var id = req.query.attachmentIds;
@@ -549,22 +586,26 @@ app.post('/arcgis/rest/services/:name/FeatureServer/:id/applyEdits', function(re
 	  	}
 	  }
   }
-  //search for id and update all fields
-  fs.writeFileSync(path, JSON.stringify(json), "utf8");
-
-  //now update the replica database
-
-  values.push(parseInt(req.params.id));
-
-  var replicaDb = replica_path + "/"+req.params.name+".geodatabase";
-  console.log("sqlite: " + replicaDb);
-  var db = new sqlite3.Database(replicaDb);
-  //create update statement from json
-  console.log("UPDATE " + req.params.name + " SET "+fields.join(",")+" WHERE OBJECTID = ?");
-  console.log( values )
-  
-  db.run("UPDATE " + req.params.name + " SET "+fields.join(",")+" WHERE OBJECTID = ?", values);
- //update json file with updates
+  if(fields.length>0){
+	  //search for id and update all fields
+	  fs.writeFileSync(path, JSON.stringify(json), "utf8");
+	
+	  //now update the replica database
+	
+	  values.push(parseInt(req.params.id));
+	
+	  var replicaDb = replica_path + "/"+req.params.name+".geodatabase";
+	  console.log("sqlite: " + replicaDb);
+	  var db = new sqlite3.Database(replicaDb);
+	  //create update statement from json
+	  console.log("UPDATE " + req.params.name + " SET "+fields.join(",")+" WHERE OBJECTID = ?");
+	  console.log( values )
+	  
+	  db.run("UPDATE " + req.params.name + " SET "+fields.join(",")+" WHERE OBJECTID = ?", values);
+  }else{
+ 	  results={"objectId":updates.length>0?updates[0].attributes['OBJECTID']:0,"globalId":null,"success":true}
+ 	}
+  //update json file with updates
   var response={"addResults":[],"updateResults":results,"deleteResults":[]}
   res.json(response);
 });
