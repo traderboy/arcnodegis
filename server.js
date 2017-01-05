@@ -34,22 +34,10 @@ var options = {
   key: fs.readFileSync('agent2-key.pem','utf8'),
   cert: fs.readFileSync('agent2-cert.cert', 'utf8')
 };
-//ssl_certificate     /etc/ssl/certs/reais.crt;
-//sl_certificate_key /etc/ssl/private/reais.key;
 var server="localhost";
 var serverDomain="e";
 
 var options1 = {
- //key: fs.readFileSync('/etc/ssl/private/reais.key'),
- //cert: fs.readFileSync('/etc/ssl/certs/reais.crt'),
- //key: fs.readFileSync('reais.key'),
- // cert: fs.readFileSync('reais.crt'),
- /*
-  key: fs.readFileSync('server.key'),
-  cert: fs.readFileSync('server.crt'),
-  ca: fs.readFileSync('node.crt'),
- */
- //requestCert: true,
  rejectUnauthorized: false
 };
 //CORS middleware
@@ -185,11 +173,6 @@ app.post('/sharing/rest/tokens',function(req, res){
 	var response={"token":"1.0"}
 	res.json(response);
 });
-/*
-openssl req -x509 -nodes -days 365 -newkey rsa:1024 \
-    -keyout /etc/ssl/private/reais.key \
-    -out /etc/ssl/certs/reais.crt
-*/
 
 /*
 End authentication
